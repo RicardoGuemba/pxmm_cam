@@ -1,0 +1,20 @@
+#!/bin/bash
+# Launcher para Pxmm CAM - inicia o app ao dar duplo clique no Finder.
+# Abre o Terminal para executar o app (evita "Operation not permitted" do macOS em pastas como Documentos).
+
+# Caminho absoluto do launcher (no Finder $0 pode ser path completo)
+LAUNCHER="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+BUNDLE_DIR="$(cd "$(dirname "$LAUNCHER")/../.." && pwd)"
+PROJECT_DIR="$(dirname "$BUNDLE_DIR")"
+SCRIPT="$PROJECT_DIR/scripts/run_in_terminal.command"
+
+if [ ! -f "$SCRIPT" ]; then
+    osascript -e "display alert \"Pxmm CAM\" message \"Arquivo não encontrado. Mantenha o Pxmm CAM.app dentro da pasta do projeto.\" as critical"
+    exit 1
+fi
+if [ ! -f "$PROJECT_DIR/run.py" ]; then
+    osascript -e "display alert \"Pxmm CAM\" message \"run.py não encontrado em: $PROJECT_DIR\" as critical"
+    exit 1
+fi
+[ -x "$SCRIPT" ] || chmod +x "$SCRIPT"
+open -a Terminal "$SCRIPT"

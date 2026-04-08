@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pxmm-cam"
+version = "0.1.0"
+description = "Desktop app for USB/GigE streaming and 2-click measurement with px/mm calibration"
+readme = "docs/README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PySide6>=6.5",
+    "opencv-python-headless>=4.8",
+    "PyYAML>=6.0",
+    "pydantic>=2.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+gige = ["harvester-core>=1.2.6"]
+dev = ["pytest>=7.0", "pytest-qt>=4.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
