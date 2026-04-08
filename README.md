@@ -5,8 +5,8 @@ Aplicação desktop (Windows/macOS) para streaming de câmeras **USB** e **GigE/
 ## Clonar e executar
 
 ```bash
-git clone https://github.com/SEU_USUARIO/Pxmm_CAM.git
-cd Pxmm_CAM
+git clone https://github.com/RicardoGuemba/pxmm_cam.git
+cd pxmm_cam
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e .
