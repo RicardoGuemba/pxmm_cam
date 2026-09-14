@@ -10,13 +10,13 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
-    QGridLayout,
-    QGroupBox,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QStatusBar,
     QTabWidget,
@@ -59,8 +59,13 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Pxmm CAM")
-        self.setMinimumSize(800, 600)
-        self.resize(1000, 700)
+        self.setMinimumSize(640, 480)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            avail = screen.availableGeometry()
+            self.setGeometry(avail)
+        else:
+            self.resize(1280, 800)
 
         self._config: Optional[AppConfig] = None
         self._source: Optional[FrameSource] = None
@@ -78,8 +83,11 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(4, 4, 4, 0)
+        layout.setSpacing(2)
 
         self._tabs = QTabWidget()
+        self._tabs.setDocumentMode(True)
         self._tabs.addTab(self._build_operation_tab(), "Operação")
         self._tabs.addTab(self._build_diagnostic_tab(), "Diagnóstico")
         layout.addWidget(self._tabs)
@@ -101,84 +109,103 @@ class MainWindow(QMainWindow):
     def _build_operation_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(2)
 
-        # Source selection
-        group = QGroupBox("Fonte")
-        grid = QGridLayout(group)
-        grid.addWidget(QLabel("Fonte:"), 0, 0)
+        bar = QWidget()
+        bar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        bar_layout = QHBoxLayout(bar)
+        bar_layout.setContentsMargins(0, 0, 0, 0)
+        bar_layout.setSpacing(6)
+
+        bar_layout.addWidget(QLabel("Fonte:"))
         self._source_combo = QComboBox()
         self._source_combo.addItems(["USB (entrada USB)", "GigE/LAN (Ethernet)"])
+        self._source_combo.setMinimumWidth(160)
         self._source_combo.currentTextChanged.connect(self._on_source_type_changed)
-        grid.addWidget(self._source_combo, 0, 1)
+        bar_layout.addWidget(self._source_combo)
 
-        self._usb_index_label = QLabel("Câmera USB:")
+        self._usb_index_label = QLabel("USB:")
         self._usb_camera_combo = QComboBox()
+        self._usb_camera_combo.setMinimumWidth(140)
         self._usb_camera_combo.setToolTip(
             "Apenas câmera conectada na porta USB. Use Detectar para listar."
         )
         self._usb_camera_combo.addItem("Detectar câmera USB", -1)
-        grid.addWidget(self._usb_index_label, 1, 0)
-        grid.addWidget(self._usb_camera_combo, 1, 1)
-        self._detect_usb_btn = QPushButton("Detectar câmera USB")
+        self._detect_usb_btn = QPushButton("Detectar")
         self._detect_usb_btn.clicked.connect(self._on_detect_usb_cameras)
-        grid.addWidget(self._detect_usb_btn, 2, 0, 1, 2)
+        bar_layout.addWidget(self._usb_index_label)
+        bar_layout.addWidget(self._usb_camera_combo)
+        bar_layout.addWidget(self._detect_usb_btn)
 
         self._gige_widget = QWidget()
-        gige_layout = QGridLayout(self._gige_widget)
-        gige_layout.addWidget(QLabel("IP:"), 0, 0)
+        gige_layout = QHBoxLayout(self._gige_widget)
+        gige_layout.setContentsMargins(0, 0, 0, 0)
+        gige_layout.setSpacing(4)
+        gige_layout.addWidget(QLabel("IP:"))
         self._gige_ip_edit = QLineEdit()
         self._gige_ip_edit.setPlaceholderText("192.168.1.10")
+        self._gige_ip_edit.setMaximumWidth(140)
         self._gige_ip_edit.setText(self._config.streaming.gige_ip if self._config else "")
-        gige_layout.addWidget(self._gige_ip_edit, 0, 1)
-        gige_layout.addWidget(QLabel("Porta:"), 1, 0)
+        gige_layout.addWidget(self._gige_ip_edit)
+        self._gige_widget.setVisible(False)
+        bar_layout.addWidget(self._gige_widget)
+
+        # Legado: snapshot ainda lê porta/backend, sem ocupar a área de vídeo.
         self._gige_port_spin = QSpinBox()
         self._gige_port_spin.setRange(1, 65535)
         self._gige_port_spin.setValue(self._config.streaming.gige_port if self._config else 3956)
-        gige_layout.addWidget(self._gige_port_spin, 1, 1)
-        gige_layout.addWidget(QLabel("Backend:"), 2, 0)
+        self._gige_port_spin.hide()
         self._gige_backend_combo = QComboBox()
         self._gige_backend_combo.addItems(["auto", "harvester", "gstreamer", "opencv"])
-        gige_layout.addWidget(self._gige_backend_combo, 2, 1)
-        self._gige_widget.setVisible(False)
-        grid.addWidget(self._gige_widget, 3, 0, 1, 2)
+        self._gige_backend_combo.hide()
 
-        layout.addWidget(group)
-
-        # Área de vídeo (prioridade no layout para o streaming aparecer)
-        layout.addWidget(self._video, 5)
-        layout.setStretchFactor(self._video, 5)
-
-        # Histórico (altura limitada para não roubar espaço do vídeo)
-        history_group = QGroupBox("Histórico de medições")
-        history_layout = QVBoxLayout(history_group)
-        self._history_table = QTableWidget()
-        self._history_table.setMaximumHeight(140)
-        self._history_table.setColumnCount(6)
-        self._history_table.setHorizontalHeaderLabels([
-            "Data/Hora", "Fonte", "px", "mm", "px/mm", "mm/px",
-        ])
-        self._history_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.ResizeToContents
-        )
-        history_layout.addWidget(self._history_table)
-        layout.addWidget(history_group)
-
-        # Buttons
-        btn_layout = QVBoxLayout()
+        bar_layout.addStretch(1)
         self._connect_btn = QPushButton("Conectar")
         self._connect_btn.clicked.connect(self._on_connect)
         self._disconnect_btn = QPushButton("Desconectar")
         self._disconnect_btn.clicked.connect(self._on_disconnect)
         self._disconnect_btn.setEnabled(False)
-        self._clear_pts_btn = QPushButton("Limpar Pontos")
+        self._clear_pts_btn = QPushButton("Limpar pontos")
         self._clear_pts_btn.clicked.connect(self._on_clear_points)
         self._export_btn = QPushButton("Exportar")
         self._export_btn.clicked.connect(self._on_export)
-        btn_layout.addWidget(self._connect_btn)
-        btn_layout.addWidget(self._disconnect_btn)
-        btn_layout.addWidget(self._clear_pts_btn)
-        btn_layout.addWidget(self._export_btn)
-        layout.addLayout(btn_layout)
+        for btn in (
+            self._connect_btn,
+            self._disconnect_btn,
+            self._clear_pts_btn,
+            self._export_btn,
+        ):
+            bar_layout.addWidget(btn)
+
+        layout.addWidget(bar, 0)
+
+        self._video.setMinimumSize(320, 200)
+        self._video.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        layout.addWidget(self._video, 1)
+
+        self._history_table = QTableWidget()
+        self._history_table.setColumnCount(6)
+        self._history_table.setHorizontalHeaderLabels([
+            "Data/Hora", "Fonte", "px", "mm", "px/mm", "mm/px",
+        ])
+        self._history_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
+        self._history_table.verticalHeader().setVisible(False)
+        self._history_table.setMaximumHeight(72)
+        self._history_table.setMinimumHeight(48)
+        self._history_table.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Maximum,
+        )
+        layout.addWidget(self._history_table, 0)
+
+        if self._config and self._config.streaming.source_type == "stapipy":
+            self._source_combo.setCurrentIndex(1)
 
         return tab
 
@@ -194,6 +221,8 @@ class MainWindow(QMainWindow):
         return int(val)
 
     def _on_source_type_changed(self, text: str) -> None:
+        if not hasattr(self, "_gige_widget"):
+            return
         is_gige = "GigE" in text or "LAN" in text or "Ethernet" in text
         self._gige_widget.setVisible(is_gige)
         self._usb_index_label.setVisible(not is_gige)
@@ -219,19 +248,24 @@ class MainWindow(QMainWindow):
 
     def _get_current_config_snapshot(self) -> AppConfig:
         """Build config from current UI (for connect)."""
-        source_type = "gige" if "GigE" in self._source_combo.currentText() or "LAN" in self._source_combo.currentText() else "usb"
+        source_type = (
+            "stapipy"
+            if "GigE" in self._source_combo.currentText() or "LAN" in self._source_combo.currentText()
+            else "usb"
+        )
         usb_idx = max(0, self._get_usb_camera_index())
+        streaming_cfg = self._config.streaming if self._config else None
         return AppConfig(
             streaming=StreamingConfig(
                 source_type=source_type,
                 usb_camera_index=usb_idx,
+                device_index=streaming_cfg.device_index if streaming_cfg else 0,
+                fetch_timeout_ms=streaming_cfg.fetch_timeout_ms if streaming_cfg else 400,
                 gige_ip=self._gige_ip_edit.text().strip(),
                 gige_port=self._gige_port_spin.value(),
-                gige_backend=self._gige_backend_combo.currentText(),
-                gentl_producer_path=self._config.streaming.gentl_producer_path if self._config else "",
-                requested_width=self._config.streaming.requested_width if self._config else None,
-                requested_height=self._config.streaming.requested_height if self._config else None,
-                target_fps=self._config.streaming.target_fps if self._config else None,
+                requested_width=streaming_cfg.requested_width if streaming_cfg else None,
+                requested_height=streaming_cfg.requested_height if streaming_cfg else None,
+                target_fps=streaming_cfg.target_fps if streaming_cfg else None,
             ),
             ui=UIConfig(auto_export=self._config.ui.auto_export if self._config else False),
             export=ExportConfig(default_dir=self._config.export.default_dir if self._config else ""),
@@ -239,9 +273,6 @@ class MainWindow(QMainWindow):
 
     def _on_connect(self) -> None:
         config = self._get_current_config_snapshot()
-        if config.streaming.source_type == "gige" and not config.streaming.gige_ip:
-            QMessageBox.warning(self, "GigE/LAN", "Informe o IP da câmera na rede Ethernet.")
-            return
         if config.streaming.source_type == "usb" and self._get_usb_camera_index() < 0:
             QMessageBox.warning(
                 self,
@@ -318,7 +349,10 @@ class MainWindow(QMainWindow):
         msg.setIcon(QMessageBox.Icon.Warning)
         msg.setWindowTitle("Falha na conexão GigE")
         msg.setText(message)
-        msg.setInformativeText("Use a aba Diagnóstico para verificar o ambiente (OpenCV, GStreamer, Harvester, GenTL).")
+        msg.setInformativeText(
+            "Use a aba Diagnóstico (stapipy, SentechSDK, .stprofile). "
+            "Feche o StViewer se a câmera estiver ocupada."
+        )
         open_diag = msg.addButton("Abrir Diagnóstico", QMessageBox.ButtonRole.ActionRole)
         msg.addButton(QMessageBox.StandardButton.Ok)
         msg.exec()

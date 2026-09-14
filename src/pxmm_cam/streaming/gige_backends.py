@@ -1,5 +1,6 @@
-"""GigE backends: Harvester (GenTL), GStreamer, OpenCV. Each returns a FrameSource or None."""
+"""GigE backends Harvester/GStreamer/OpenCV. Legado: a Sentech abre via stapipy, não por aqui."""
 
+import re
 import time
 from typing import Optional, Tuple
 
@@ -8,10 +9,26 @@ import numpy as np
 from .frame_source import FrameSource, FrameSourceStatus
 
 
+def _get_harvester_class():
+    try:
+        import harvester as legacy_harvester  # type: ignore
+        return legacy_harvester.Harvester
+    except Exception:
+        try:
+            from harvesters.core import Harvester
+            return Harvester
+        except Exception:
+            return None
+
+
 def detect_gstreamer_available() -> bool:
     try:
         import cv2
-        return "GStreamer" in cv2.getBuildInformation()
+        build_info = cv2.getBuildInformation()
+        match = re.search(r"^\s*GStreamer\s*:\s*(YES|NO)\s*$", build_info, flags=re.MULTILINE | re.IGNORECASE)
+        if match is None:
+            return False
+        return match.group(1).upper() == "YES"
     except Exception:
         return False
 
@@ -28,9 +45,8 @@ def try_harvester_backend(
 ) -> Optional[FrameSource]:
     if not gentl_path or not gentl_path.strip():
         return None
-    try:
-        import harvester  # optional dependency
-    except ImportError:
+    HarvesterClass = _get_harvester_class()
+    if HarvesterClass is None:
         return None
     try:
         return HarvesterBackend(ip, port, gentl_path.strip(), requested_width, requested_height, target_fps)
@@ -50,24 +66,26 @@ class HarvesterBackend(FrameSource):
         requested_height: Optional[int],
         target_fps: Optional[float],
     ) -> None:
-        try:
-            import harvester
-        except ImportError:
-            raise RuntimeError("Harvester não instalado. Instale com: pip install harvester-core")
+        HarvesterClass = _get_harvester_class()
+        if HarvesterClass is None:
+            raise RuntimeError("Harvester não instalado. Instale com: pip install harvesters")
         self._ip = ip
         self._port = port
         self._gentl_path = gentl_path
         self._requested_width = requested_width
         self._requested_height = requested_height
         self._target_fps = target_fps
-        self._harvester = harvester.Harvester()
+        self._harvester = HarvesterClass()
         self._harvester.add_file(gentl_path)
         self._ia = None
         self._error: Optional[str] = None
 
     def open(self) -> None:
         self._error = None
-        self._harvester.update_device_info_list()
+        if hasattr(self._harvester, "update"):
+            self._harvester.update()
+        else:
+            self._harvester.update_device_info_list()
         if not self._harvester.device_info_list:
             self._error = "Nenhum dispositivo GenICam encontrado. Verifique o GenTL Producer e a rede."
             return
@@ -79,7 +97,13 @@ class HarvesterBackend(FrameSource):
                 break
         if dev is None:
             dev = self._harvester.device_info_list[0]
-        self._ia = self._harvester.create_image_acquirer(device_info=dev)
+        try:
+            # Legacy API (pyharvest/older wrappers)
+            self._ia = self._harvester.create_image_acquirer(device_info=dev)
+        except TypeError:
+            # Current harvesters API accepts list index or filter kwargs.
+            list_index = self._harvester.device_info_list.index(dev)
+            self._ia = self._harvester.create_image_acquirer(list_index=list_index)
         self._ia.start_image_acquisition()
 
     def read_frame(self) -> Tuple[Optional[np.ndarray], Optional[float]]:
@@ -235,14 +259,28 @@ class OpenCVGigEBackend(FrameSource):
     def open(self) -> None:
         import cv2
         self._error = None
-        self._cap = cv2.VideoCapture(f"gige://{self._ip}")
-        if not self._cap.isOpened():
-            self._cap = cv2.VideoCapture(f"http://{self._ip}:{self._port}/video")
-        if not self._cap.isOpened():
-            self._error = "IP inacessível / cabo / subnet / firewall. Verifique a rede e a aba Diagnóstico."
-            if self._cap:
-                self._cap.release()
-            self._cap = None
+        attempts = [
+            f"gige://{self._ip}",
+            f"rtsp://{self._ip}:{self._port}/",
+            f"rtsp://{self._ip}/",
+            f"http://{self._ip}:{self._port}/video",
+            f"http://{self._ip}:{self._port}/",
+        ]
+        last_error = ""
+        for source in attempts:
+            cap = cv2.VideoCapture(source)
+            if cap.isOpened():
+                self._cap = cap
+                return
+            last_error = source
+            cap.release()
+        self._error = (
+            "Falha ao abrir stream GigE via OpenCV. Verifique URL/porta/protocolo da câmera, "
+            "cabo/subnet/firewall. Tentativas: "
+            + ", ".join(attempts)
+            + f". Última tentativa: {last_error}"
+        )
+        self._cap = None
 
     def read_frame(self) -> Tuple[Optional[np.ndarray], Optional[float]]:
         import cv2

@@ -1,6 +1,6 @@
 # Pxmm CAM
 
-Aplicação desktop (Windows/macOS) para streaming de câmeras **USB** e **GigE/LAN**, medição por dois cliques e calibração px↔mm com exportação CSV/JSON.
+Aplicação desktop (Windows/macOS) para streaming de câmeras **USB** e **Omron Sentech (StApi/stapipy)**, medição por dois cliques e calibração px↔mm com exportação CSV/JSON.
 
 ## Clonar e executar
 
@@ -19,3 +19,4 @@ Documentação completa: [docs/README.md](docs/README.md).
 
 - Python 3.9+
 - Dependências: PySide6, OpenCV, PyYAML, Pydantic, NumPy (instaladas via `pip install -e .`)
+- Sentech: SentechSDK + wheel local `stapipy` (não está no PyPI)

@@ -1,4 +1,4 @@
-"""GigE Vision source with multi-backend: Harvester, GStreamer, OpenCV. Auto selection."""
+"""GigE Vision source (Harvester/GStreamer/OpenCV). Não usado na produção Sentech; factory usa StapipySource."""
 
 from typing import Optional, Tuple, Literal
 

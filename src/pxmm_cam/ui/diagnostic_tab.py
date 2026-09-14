@@ -1,9 +1,9 @@
-"""Diagnostic tab: checklist (OS, Python, OpenCV, GStreamer, Harvester, GenTL, ping) and last error."""
+"""Diagnostic tab: checklist (OS, Python, OpenCV, stapipy/SentechSDK, ping) and last error."""
 
 import platform
-import subprocess
 import sys
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Tuple
 
 from PySide6.QtWidgets import (
     QLabel,
@@ -15,48 +15,26 @@ from PySide6.QtWidgets import (
 )
 
 
-def _check_opencv_gstreamer() -> bool:
+def _check_stapipy() -> Tuple[bool, str]:
     try:
-        import cv2
-        return cv2.getBuildInformation().count("GStreamer") > 0
-    except Exception:
-        return False
-
-
-def _check_harvester() -> bool:
-    try:
-        import harvester  # noqa: F401
-        return True
+        import stapipy  # noqa: F401
+        return True, "Importável"
     except ImportError:
-        return False
-
-
-def _check_gentl_loadable(gentl_path: Optional[str] = None) -> bool:
-    if not gentl_path or not gentl_path.strip():
-        return False
-    try:
-        import harvester
-        h = harvester.Harvester()
-        h.add_file(gentl_path.strip())
-        return True
-    except Exception:
-        return False
-
-
-def _ping_ip(ip: str, timeout_s: float = 2.0) -> str:
-    if not ip or not ip.strip():
-        return "N/A"
-    try:
-        param = "-n" if platform.system() == "Windows" else "-c"
-        r = subprocess.run(
-            ["ping", param, "1", ip.strip()],
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-        return "Alcançável" if r.returncode == 0 else "Inacessível"
+        return False, "Não instalado (wheel local, não PyPI)"
     except Exception as e:
-        return str(e)
+        return False, str(e)
+
+
+def _check_sentech_sdk() -> Tuple[bool, str]:
+    candidates = [
+        Path("/opt/sentech"),
+        Path("/opt/SentechSDK"),
+        Path("/opt/omron/sentech"),
+    ]
+    for p in candidates:
+        if p.is_dir():
+            return True, str(p)
+    return False, "Não encontrado (ex.: /opt/sentech)"
 
 
 class DiagnosticTab(QWidget):
@@ -82,22 +60,20 @@ class DiagnosticTab(QWidget):
             grid.addWidget(QLabel("OpenCV:"), row, 0)
             grid.addWidget(QLabel("Não instalado"), row, 1)
         row += 1
-        grid.addWidget(QLabel("OpenCV + GStreamer:"), row, 0)
-        grid.addWidget(QLabel("Sim" if _check_opencv_gstreamer() else "Não"), row, 1)
+        stapipy_ok, stapipy_msg = _check_stapipy()
+        grid.addWidget(QLabel("stapipy (StApi):"), row, 0)
+        grid.addWidget(QLabel("Sim — " + stapipy_msg if stapipy_ok else "Não — " + stapipy_msg), row, 1)
         row += 1
-        grid.addWidget(QLabel("Harvester instalado:"), row, 0)
-        grid.addWidget(QLabel("Sim" if _check_harvester() else "Não"), row, 1)
+        sdk_ok, sdk_msg = _check_sentech_sdk()
+        grid.addWidget(QLabel("SentechSDK:"), row, 0)
+        grid.addWidget(QLabel("Sim — " + sdk_msg if sdk_ok else "Não — " + sdk_msg), row, 1)
         row += 1
-        grid.addWidget(QLabel("GenTL Producer carregável:"), row, 0)
-        gentl_ok = "N/A"
-        try:
-            from pxmm_cam.config import load_config
-            c = load_config()
-            gentl_ok = "Sim" if _check_gentl_loadable(c.streaming.gentl_producer_path) else "Não"
-        except Exception:
-            pass
-        grid.addWidget(QLabel(gentl_ok), row, 1)
-        row += 1
+        hint = QLabel(
+            "Abertura da Sentech: StApi (enumeração), não Harvester/.cti. "
+            "Feche o StViewer se o device estiver ocupado. Confira .stprofile do SDK."
+        )
+        hint.setWordWrap(True)
+        grid.addWidget(hint, row, 0, 1, 2)
         layout.addWidget(group)
 
         self._ping_label = QLabel("Ping (IP): N/A")
@@ -114,8 +90,9 @@ class DiagnosticTab(QWidget):
         self._refresh()
 
     def _refresh(self) -> None:
-        # Ping: could be taken from main window's GigE IP if needed
-        self._ping_label.setText("Ping: configure IP na aba Operação (GigE) e reconecte para testar.")
+        self._ping_label.setText(
+            "Ping: IP no yaml é só diagnóstico; StApi não abre por gige://IP."
+        )
 
     def set_last_error(self, text: str) -> None:
         self._error_text.setPlainText(text)

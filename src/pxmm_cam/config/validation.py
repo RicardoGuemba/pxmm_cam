@@ -10,32 +10,43 @@ from pydantic import BaseModel, Field, field_validator
 class StreamingConfig(BaseModel):
     """Streaming section of config.yaml."""
 
-    source_type: Literal["usb", "gige"] = Field(
+    source_type: Literal["usb", "stapipy"] = Field(
         default="usb",
-        description="Tipo de fonte: usb ou gige",
+        description="Tipo de fonte: usb ou stapipy (Omron Sentech / StApi)",
     )
     usb_camera_index: int = Field(
         default=0,
         ge=0,
         description="Índice da câmera USB (0, 1, ...)",
     )
+    device_index: int = Field(
+        default=0,
+        ge=0,
+        description="Índice StApi (0 = create_first_device)",
+    )
+    fetch_timeout_ms: int = Field(
+        default=400,
+        ge=1,
+        le=60000,
+        description="Timeout de retrieve_buffer (ms)",
+    )
     gige_ip: str = Field(
         default="",
-        description="IP da câmera GigE (IPv4)",
+        description="IP da câmera (metadado/diagnóstico; abertura StApi é por enumeração)",
     )
     gige_port: int = Field(
         default=3956,
         ge=1,
         le=65535,
-        description="Porta de controle GigE",
+        description="Porta GigE (legado/diagnóstico; não usada pelo StApi)",
     )
-    gige_backend: Literal["auto", "harvester", "gstreamer", "opencv"] = Field(
-        default="auto",
-        description="Backend GigE: auto, harvester, gstreamer ou opencv",
+    gige_backend: str = Field(
+        default="",
+        description="Legado (ignorado); produção Sentech usa stapipy",
     )
     gentl_producer_path: str = Field(
         default="",
-        description="Caminho do GenTL Producer (.cti); necessário para Harvester",
+        description="Legado (ignorado); produção usa stapipy/SentechSDK, não .cti",
     )
     requested_width: Optional[int] = Field(
         default=None,
@@ -55,6 +66,13 @@ class StreamingConfig(BaseModel):
         le=1000.0,
         description="FPS alvo (opcional)",
     )
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def migrate_source_type(cls, v: object) -> object:
+        if v == "gige":
+            return "stapipy"
+        return v
 
     @field_validator("gige_ip", mode="before")
     @classmethod

@@ -1,14 +1,16 @@
 # Pxmm CAM - Configuração
-# Streaming apenas por: USB (câmera externa) ou GigE/LAN (Ethernet).
+# USB (câmera externa) ou stapipy (Omron Sentech via StApi).
+# Runtime Sentech: SentechSDK (ex. /opt/sentech) + wheel local `stapipy` (não está no PyPI).
+# Abertura StApi é por enumeração GenTL da SDK (create_first_device), não por gige://IP.
 
 streaming:
-  source_type: usb   # usb (entrada USB) | gige (rede Ethernet)
-  usb_camera_index: 1   # índice da câmera USB; 0 não é usado (apenas USB externa)
-  gige_ip: ""
-  gige_port: 3956
-  gige_backend: auto   # auto | harvester | gstreamer | opencv
-  gentl_producer_path: ""   # obrigatório para Harvester; ex: /path/to/producer.cti
-  requested_width: null    # opcional
+  source_type: stapipy   # usb | stapipy  (gige no yaml antigo é migrado para stapipy)
+  usb_camera_index: 0   # índice da câmera USB
+  device_index: 0       # 0 = primeira câmera StApi
+  fetch_timeout_ms: 400
+  gige_ip: "192.168.250.11"   # metadado/diagnóstico (ping); não abre o device
+  gige_port: 3951             # legado/diagnóstico
+  requested_width: null    # ignorado no StApi (resolução nativa para medição)
   requested_height: null
   target_fps: null
 
