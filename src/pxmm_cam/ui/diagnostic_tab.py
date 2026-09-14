@@ -1,6 +1,7 @@
 """Diagnostic tab: checklist (OS, Python, OpenCV, GStreamer, Harvester, GenTL, ping) and last error."""
 
 import platform
+import re
 import subprocess
 import sys
 from typing import Optional
@@ -18,7 +19,11 @@ from PySide6.QtWidgets import (
 def _check_opencv_gstreamer() -> bool:
     try:
         import cv2
-        return cv2.getBuildInformation().count("GStreamer") > 0
+        build_info = cv2.getBuildInformation()
+        match = re.search(r"^\s*GStreamer\s*:\s*(YES|NO)\s*$", build_info, flags=re.MULTILINE | re.IGNORECASE)
+        if match is None:
+            return False
+        return match.group(1).upper() == "YES"
     except Exception:
         return False
 
@@ -28,15 +33,23 @@ def _check_harvester() -> bool:
         import harvester  # noqa: F401
         return True
     except ImportError:
-        return False
+        try:
+            import harvesters  # noqa: F401
+            return True
+        except ImportError:
+            return False
 
 
 def _check_gentl_loadable(gentl_path: Optional[str] = None) -> bool:
     if not gentl_path or not gentl_path.strip():
         return False
     try:
-        import harvester
-        h = harvester.Harvester()
+        try:
+            import harvester  # type: ignore
+            HarvesterClass = harvester.Harvester
+        except Exception:
+            from harvesters.core import Harvester as HarvesterClass
+        h = HarvesterClass()
         h.add_file(gentl_path.strip())
         return True
     except Exception:

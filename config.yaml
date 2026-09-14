@@ -2,12 +2,12 @@
 # Streaming apenas por: USB (câmera externa) ou GigE/LAN (Ethernet).
 
 streaming:
-  source_type: usb   # usb (entrada USB) | gige (rede Ethernet)
-  usb_camera_index: 1   # índice da câmera USB; 0 não é usado (apenas USB externa)
-  gige_ip: ""
-  gige_port: 3956
-  gige_backend: auto   # auto | harvester | gstreamer | opencv
-  gentl_producer_path: ""   # obrigatório para Harvester; ex: /path/to/producer.cti
+  source_type: gige   # usb (entrada USB) | gige (rede Ethernet)
+  usb_camera_index: 0   # índice da câmera USB
+  gige_ip: "192.168.250.11"
+  gige_port: 3951
+  gige_backend: harvester   # auto | harvester | gstreamer | opencv
+  gentl_producer_path: "/opt/sentech/lib/libstgentl.cti"   # obrigatório para Harvester; ex: /path/to/producer.cti
   requested_width: null    # opcional
   requested_height: null
   target_fps: null
