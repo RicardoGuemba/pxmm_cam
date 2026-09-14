@@ -1,4 +1,4 @@
-"""GigE backends: Harvester (GenTL), GStreamer, OpenCV. Each returns a FrameSource or None."""
+"""GigE backends Harvester/GStreamer/OpenCV. Legado: a Sentech abre via stapipy, não por aqui."""
 
 import re
 import time

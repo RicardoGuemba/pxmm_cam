@@ -20,7 +20,7 @@ class FrameSourceStatus:
 
 
 class FrameSource(ABC):
-    """Abstract base for USB and GigE frame sources. Frames are BGR (OpenCV convention)."""
+    """Abstract base for USB and StApi (stapipy) frame sources. Frames are BGR (OpenCV convention)."""
 
     @abstractmethod
     def open(self) -> None:

@@ -1,4 +1,4 @@
-"""Frame source factory: build USB or GigE source from config."""
+"""Frame source factory: USB (OpenCV) ou Sentech StApi (stapipy)."""
 
 from typing import TYPE_CHECKING
 
@@ -19,15 +19,12 @@ def create_frame_source(config: "AppConfig") -> FrameSource:
             requested_height=streaming.requested_height,
             target_fps=streaming.target_fps,
         )
-    if streaming.source_type == "gige":
-        from .gige_source import GigESource
-        return GigESource(
-            ip=streaming.gige_ip,
-            port=streaming.gige_port,
-            backend_preference=streaming.gige_backend,
-            gentl_producer_path=streaming.gentl_producer_path or None,
-            requested_width=streaming.requested_width,
-            requested_height=streaming.requested_height,
+    if streaming.source_type == "stapipy":
+        from .stapipy_source import StapipySource
+
+        return StapipySource(
+            device_index=streaming.device_index,
+            fetch_timeout_ms=streaming.fetch_timeout_ms,
             target_fps=streaming.target_fps,
         )
     raise ValueError(f"source_type não suportado: {streaming.source_type}")

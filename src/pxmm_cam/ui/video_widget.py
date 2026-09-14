@@ -20,7 +20,7 @@ class VideoWidget(QWidget):
         self._current_image: Optional[QImage] = None
         self._frame_size: Optional[Tuple[int, int]] = None  # (width, height) of last frame
         self._points: List[Tuple[float, float]] = []  # in frame coords
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(320, 200)
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
@@ -111,8 +111,9 @@ class VideoWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         w, h = self.width(), self.height()
+        painter.fillRect(0, 0, w, h, QColor(0, 0, 0))
         if self._current_image is None:
-            painter.fillRect(0, 0, w, h, self.palette().color(self.backgroundRole()))
+            painter.setPen(QColor(200, 200, 200))
             painter.drawText(0, 0, w, h, Qt.AlignmentFlag.AlignCenter, "Sem vídeo")
             return
         iw = self._current_image.width()

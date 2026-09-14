@@ -23,7 +23,7 @@ Escolha **uma** das formas abaixo. A pasta de trabalho deve ser a **raiz do proj
 
 - Python 3.9+
 - PySide6, OpenCV, PyYAML, Pydantic, NumPy
-- Para GigE via Harvester: `harvester-core` e um **GenTL Producer** do fabricante (arquivo `.cti`)
+- Câmera Omron Sentech: **SentechSDK** (ex. `/opt/sentech`) + wheel local **`stapipy`** (não está no PyPI). Não use Harvester/`.cti` para abrir a Sentech.
 
 ## Instalação
 
@@ -31,37 +31,35 @@ Escolha **uma** das formas abaixo. A pasta de trabalho deve ser a **raiz do proj
 cd Pxmm_CAM
 pip install -e .
 # ou: pip install -r requirements.txt
-# GigE (opcional): pip install harvester-core  ou  pip install -e ".[gige]"
+# Sentech: instale o SentechSDK e o wheel stapipy da Omron (não há extra PyPI).
 ```
 
 ## Configuração
 
 Edite **`config.yaml`** na raiz do projeto:
 
-- **streaming.source_type**: `usb` ou `gige`
+- **streaming.source_type**: `usb` ou `stapipy` (`gige` no yaml antigo vira `stapipy`)
 - **streaming.usb_camera_index**: índice da câmera USB (0, 1, …)
-- **streaming.gige_ip**, **streaming.gige_port**: IP e porta para GigE
-- **streaming.gige_backend**: `auto` | `harvester` | `gstreamer` | `opencv`
-- **streaming.gentl_producer_path**: caminho do GenTL Producer (necessário para Harvester)
+- **streaming.device_index**: índice StApi (`0` = primeira câmera)
+- **streaming.fetch_timeout_ms**: timeout de `retrieve_buffer`
+- **streaming.gige_ip**: metadado/diagnóstico (ping); a abertura StApi **não** usa `gige://IP`
+- `gige_backend` / `gentl_producer_path`: legado, ignorados
 
 Validação é feita com Pydantic; mensagens de erro indicam campos inválidos.
 
 ## Uso
 
-1. **Operação**: escolha Fonte (USB ou GigE). Para USB informe o índice; para GigE informe IP, porta e backend. Clique em **Conectar**. O preview e o FPS aparecem na barra de status.
+1. **Operação**: escolha Fonte (USB ou GigE/LAN). USB: detectar câmera. Sentech: Conectar usa StApi (`stapipy`). Clique em **Conectar**.
 2. **Medição**: no vídeo, clique em dois pontos (A e B). Informe a distância real em mm no diálogo. A escala px/mm e mm/px é calculada e a medição entra no histórico.
 3. **Exportar**: use o botão **Exportar** para salvar o histórico em CSV ou JSON (schema fixo).
-4. **Diagnóstico**: em falha de conexão GigE, use **Abrir Diagnóstico** ou a aba **Diagnóstico** para verificar SO, Python, OpenCV, GStreamer, Harvester e GenTL.
+4. **Diagnóstico**: stapipy importável, SentechSDK, `.stprofile`, device ocupado pelo StViewer.
 
 ## Logs
 
 Os logs ficam em **`logs/pxmm_cam.log`** (rotação automática, ~2 MB por arquivo). Erros do launcher (.app): **`logs/launcher_error.log`**.
 
-## GigE – backends
+## Sentech (StApi / stapipy)
 
-- **Auto**: tenta Harvester (se `gentl_producer_path` configurado), depois GStreamer (se OpenCV tiver suporte), depois OpenCV.
-- **Harvester**: exige GenTL Producer do fabricante; configure `gentl_producer_path` no `config.yaml`.
-- **GStreamer**: exige OpenCV compilado com GStreamer (aba Diagnóstico mostra sim/não).
-- **OpenCV**: fallback com `gige://` ou URL HTTP; depende de drivers/SDK do fabricante.
+A câmera industrial abre com Sentech StApi: `initialize` → `create_system` → `create_first_device` → datastream → acquire. Sem Harvester, sem `libstgentl.cti` no caminho de produção, sem `gige://`.
 
-Em caso de falha, as mensagens orientam e a aba Diagnóstico ajuda a checar o ambiente.
+Feche o StViewer antes de conectar. `close`/stop da aquisição corre no thread do `CaptureWorker` (não na UI).
