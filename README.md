@@ -1,6 +1,14 @@
-# Pxmm CAM
+# Medição por câmera em pixels e milímetros
 
 Aplicação desktop (Windows/macOS) para streaming de câmeras **USB** e **Omron Sentech (StApi/stapipy)**, medição por dois cliques e calibração px↔mm com exportação CSV/JSON.
+
+**Primeira experiência.** Use uma referência de dimensão conhecida no plano de medição para calibrar a escala. Marque dois pontos de outro objeto nesse plano e confira a medida com a dimensão conhecida.
+
+**Arquivos de referência**
+
+- [run.py](run.py)
+- [docs/README.md](docs/README.md)
+- [tests](tests)
 
 ## Clonar e executar
 
